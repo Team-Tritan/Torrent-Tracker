@@ -59,7 +59,7 @@ function handleAnnounce(req: Request, res: Response): void {
 
   if (!info_hash || !peer_id || isNaN(port)) {
     res.status(400).send("Missing or invalid required parameters");
-    return
+    return;
   }
 
   const ip = getIP(req);
@@ -84,18 +84,19 @@ function handleAnnounce(req: Request, res: Response): void {
   let seeders = 0;
   let leechers = 0;
 
-  Object.values(torrents[info_hash]).forEach(p => {
+  Object.values(torrents[info_hash]).forEach((p) => {
     if (p.left === 0) seeders++;
     else leechers++;
   });
 
-  const peerList = Object.values(torrents[info_hash])
-    .filter((p) => p.peer_id !== peer_id);
+  const peerList = Object.values(torrents[info_hash]).filter(
+    (p) => p.peer_id !== peer_id
+  );
 
   const response: any = {
-    'interval': 1800,
-    'complete': seeders,
-    'incomplete': leechers
+    interval: 1800,
+    complete: seeders,
+    incomplete: leechers,
   };
 
   if (compact) {
@@ -103,7 +104,7 @@ function handleAnnounce(req: Request, res: Response): void {
 
     peerList.forEach((peer, i) => {
       const offset = i * 6;
-      const ipParts = peer.ip.split('.').map(Number);
+      const ipParts = peer.ip.split(".").map(Number);
 
       for (let j = 0; j < 4; j++) {
         compactPeers[offset + j] = ipParts[j] || 0;
@@ -115,14 +116,14 @@ function handleAnnounce(req: Request, res: Response): void {
 
     response.peers = compactPeers;
   } else {
-    response.peers = peerList.map(p => ({
-      'peer id': p.peer_id,
-      'ip': p.ip,
-      'port': p.port
+    response.peers = peerList.map((p) => ({
+      "peer id": p.peer_id,
+      ip: p.ip,
+      port: p.port,
     }));
   }
 
-  res.set('Content-Type', 'text/plain');
+  res.set("Content-Type", "text/plain");
   res.send(bencode.encode(response));
 }
 
@@ -159,6 +160,68 @@ function handleStats(_req: Request, res: Response): void {
   res.json({ torrents: stats });
 }
 
+function handleScrape(req: Request, res: Response): void {
+  const { query } = parse(req.url ?? "", false);
+  const params = parseQuery(query ?? undefined);
+
+  const info_hashes = Array.isArray(params["info_hash"])
+    ? params["info_hash"]
+    : params["info_hash"]
+      ? [params["info_hash"]]
+      : [];
+
+  const files: Record<string, any> = {};
+
+  if (info_hashes.length > 0) {
+    for (const info_hash of info_hashes) {
+      if (torrents[info_hash]) {
+        files[info_hash] = getScrapeData(info_hash);
+      }
+    }
+  } else {
+    const allHashes = Object.keys(torrents).slice(0, 100);
+    for (const info_hash of allHashes) {
+      files[info_hash] = getScrapeData(info_hash);
+    }
+  }
+
+  res.set("Content-Type", "text/plain");
+  res.send(bencode.encode({ files }));
+}
+
+function getScrapeData(info_hash: string): Record<string, number> {
+  let complete = 0;
+  let incomplete = 0;
+
+  if (torrents[info_hash]) {
+    for (const peer of Object.values(torrents[info_hash])) {
+      if (peer.left === 0) complete++;
+      else incomplete++;
+    }
+  }
+
+  return { complete, incomplete, downloaded: 0 };
+}
+
+const peerExpirationTime = 40 * 60 * 1000;
+
+function cleanupInactivePeers(): void {
+  const now = Date.now();
+
+  for (const [infoHash, swarm] of Object.entries(torrents)) {
+    for (const [peerId, peer] of Object.entries(swarm)) {
+      if (now - peer.lastSeen > peerExpirationTime) {
+        delete torrents[infoHash][peerId];
+      }
+    }
+
+    if (Object.keys(torrents[infoHash]).length === 0) {
+      delete torrents[infoHash];
+    }
+  }
+}
+
+app.get("/scrape", handleScrape);
 app.get("/announce", handleAnnounce);
 app.get("/stats", handleStats);
 
@@ -173,4 +236,5 @@ function startServer(): void {
     });
 }
 
+setInterval(cleanupInactivePeers, 15 * 60 * 1000);
 startServer();
