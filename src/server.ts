@@ -122,8 +122,70 @@ function handleAnnounce(req: Request, res: Response): void {
     }));
   }
 
-  res.set('Content-Type', 'text/plain');
-  res.send(bencode.encode(response));
+  const responseData = bencode.encode(response);
+
+  res.set({
+    'Content-Type': 'text/plain',
+    'Content-Length': responseData.length,
+    'Connection': 'close'
+  });
+
+  res.send(responseData);
+  console.log(`Announce request from ${ip} for info_hash: ${info_hash.substring(0, 8)}... | Seeders: ${seeders} | Leechers: ${leechers}`);
+}
+
+function handleScrape(req: Request, res: Response): void {
+  const { query } = parse(req.url ?? "", false);
+  const params = parseQuery(query ?? undefined);
+
+  const info_hash = params["info_hash"];
+  const files: Record<string, any> = {};
+
+  if (info_hash && torrents[info_hash]) {
+    // Single torrent scrape
+    let complete = 0;
+    let incomplete = 0;
+
+    Object.values(torrents[info_hash]).forEach(p => {
+      if (p.left === 0) complete++;
+      else incomplete++;
+    });
+
+    files[info_hash] = {
+      complete,
+      incomplete,
+      downloaded: complete // This is an approximation
+    };
+  } else {
+    // Scrape all torrents
+    Object.entries(torrents).forEach(([hash, swarm]) => {
+      let complete = 0;
+      let incomplete = 0;
+
+      Object.values(swarm).forEach(p => {
+        if (p.left === 0) complete++;
+        else incomplete++;
+      });
+
+      files[hash] = {
+        complete,
+        incomplete,
+        downloaded: complete // This is an approximation
+      };
+    });
+  }
+
+  const response = { files };
+  const responseData = bencode.encode(response);
+
+  res.set({
+    'Content-Type': 'text/plain',
+    'Content-Length': responseData.length,
+    'Connection': 'close'
+  });
+
+  res.send(responseData);
+  console.log(`Scrape request processed | Torrents: ${Object.keys(files).length}`);
 }
 
 function handleStats(_req: Request, res: Response): void {
@@ -160,12 +222,15 @@ function handleStats(_req: Request, res: Response): void {
 }
 
 app.get("/announce", handleAnnounce);
+app.get("/scrape", handleScrape);
 app.get("/stats", handleStats);
 
 function startServer(): void {
   app
     .listen(PORT, () => {
       console.log(`Tracker listening at http://localhost:${PORT}`);
+      console.log(`Announce URL: http://localhost:${PORT}/announce`);
+      console.log(`Scrape URL: http://localhost:${PORT}/scrape`);
     })
     .on("error", (err: any) => {
       console.error("Failed to start server:", err);
