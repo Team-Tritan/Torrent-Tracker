@@ -1,7 +1,9 @@
 {
   "dependencies": {
+    "@types/bencode": "^2.0.4",
     "@types/express": "^5.0.1",
     "@types/node": "^22.15.3",
+    "bencode": "^4.0.0",
     "crypto": "^1.0.1",
     "express": "^5.1.0",
     "http": "^0.0.1-security",

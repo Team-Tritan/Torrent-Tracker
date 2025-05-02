@@ -1,5 +1,6 @@
 import express, { Request, Response } from "express";
 import { parse } from "url";
+import bencode from "bencode";
 
 const app = express();
 const PORT = 8080;
@@ -54,6 +55,7 @@ function handleAnnounce(req: Request, res: Response): void {
   const downloaded = parseInt(params["downloaded"], 10) || 0;
   const left = parseInt(params["left"], 10) || 0;
   const event = params["event"];
+  const compact = params["compact"] === "1";
 
   if (!info_hash || !peer_id || isNaN(port)) {
     res.status(400).send("Missing or invalid required parameters");
@@ -79,14 +81,49 @@ function handleAnnounce(req: Request, res: Response): void {
     torrents[info_hash][peer_id] = peer;
   }
 
-  const peers = Object.values(torrents[info_hash])
-    .filter((p) => p.peer_id !== peer_id)
-    .map((p) => ({ ip: p.ip, port: p.port }));
+  let seeders = 0;
+  let leechers = 0;
 
-  res.json({
-    interval: 1800,
-    peers,
+  Object.values(torrents[info_hash]).forEach(p => {
+    if (p.left === 0) seeders++;
+    else leechers++;
   });
+
+  const peerList = Object.values(torrents[info_hash])
+    .filter((p) => p.peer_id !== peer_id);
+
+  const response: any = {
+    'interval': 1800,
+    'complete': seeders,
+    'incomplete': leechers
+  };
+
+  if (compact) {
+    const compactPeers = Buffer.alloc(peerList.length * 6);
+
+    peerList.forEach((peer, i) => {
+      const offset = i * 6;
+      const ipParts = peer.ip.split('.').map(Number);
+
+      for (let j = 0; j < 4; j++) {
+        compactPeers[offset + j] = ipParts[j] || 0;
+      }
+
+      compactPeers[offset + 4] = (peer.port >> 8) & 0xff;
+      compactPeers[offset + 5] = peer.port & 0xff;
+    });
+
+    response.peers = compactPeers;
+  } else {
+    response.peers = peerList.map(p => ({
+      'peer id': p.peer_id,
+      'ip': p.ip,
+      'port': p.port
+    }));
+  }
+
+  res.set('Content-Type', 'text/plain');
+  res.send(bencode.encode(response));
 }
 
 function handleStats(_req: Request, res: Response): void {
