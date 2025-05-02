@@ -55,8 +55,10 @@ function handleAnnounce(req: Request, res: Response): void {
   const left = parseInt(params["left"], 10) || 0;
   const event = params["event"];
 
-  if (!info_hash || !peer_id || isNaN(port))
-    return res.status(400).send("Missing or invalid required parameters");
+  if (!info_hash || !peer_id || isNaN(port)) {
+    res.status(400).send("Missing or invalid required parameters");
+    return
+  }
 
   const ip = getIP(req);
   const peer: Peer = {
@@ -117,7 +119,7 @@ function handleStats(_req: Request, res: Response): void {
     }
   );
 
-  return res.json({ torrents: stats });
+  res.json({ torrents: stats });
 }
 
 app.get("/announce", handleAnnounce);
@@ -128,7 +130,7 @@ function startServer(): void {
     .listen(PORT, () => {
       console.log(`Tracker listening at http://localhost:${PORT}`);
     })
-    .on("error", (err) => {
+    .on("error", (err: any) => {
       console.error("Failed to start server:", err);
       process.exit(1);
     });
