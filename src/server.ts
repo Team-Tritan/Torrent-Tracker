@@ -1,0 +1,137 @@
+import express, { Request, Response } from "express";
+import { parse } from "url";
+
+const app = express();
+const PORT = 8080;
+
+interface Peer {
+  peer_id: string;
+  ip: string;
+  port: number;
+  uploaded: number;
+  downloaded: number;
+  left: number;
+  lastSeen: number;
+}
+
+interface TorrentStats {
+  infoHash: string;
+  totalPeers: number;
+  seeders: number;
+  leechers: number;
+  hasSeederAndLeecher: boolean;
+  clients: Record<string, number>;
+}
+
+type Swarm = Record<string, Peer>;
+const torrents: Record<string, Swarm> = {};
+
+function parseQuery(query: string = ""): Record<string, string> {
+  const params: Record<string, string> = {};
+  new URLSearchParams(query).forEach((value, key) => {
+    params[key] = value;
+  });
+  return params;
+}
+
+function getIP(req: Request): string {
+  const forwarded = req.headers["x-forwarded-for"];
+  return (
+    (typeof forwarded === "string" ? forwarded.split(",")[0] : undefined) ||
+    req.socket.remoteAddress?.replace("::ffff:", "") ||
+    "0.0.0.0"
+  );
+}
+
+function handleAnnounce(req: Request, res: Response): void {
+  const { query } = parse(req.url ?? "", false);
+  const params = parseQuery(query ?? undefined);
+
+  const info_hash = params["info_hash"];
+  const peer_id = params["peer_id"];
+  const port = parseInt(params["port"], 10);
+  const uploaded = parseInt(params["uploaded"], 10) || 0;
+  const downloaded = parseInt(params["downloaded"], 10) || 0;
+  const left = parseInt(params["left"], 10) || 0;
+  const event = params["event"];
+
+  if (!info_hash || !peer_id || isNaN(port))
+    return res.status(400).send("Missing or invalid required parameters");
+
+  const ip = getIP(req);
+  const peer: Peer = {
+    peer_id,
+    ip,
+    port,
+    uploaded,
+    downloaded,
+    left,
+    lastSeen: Date.now(),
+  };
+
+  if (!torrents[info_hash]) torrents[info_hash] = {};
+
+  if (event === "stopped") {
+    delete torrents[info_hash][peer_id];
+  } else {
+    torrents[info_hash][peer_id] = peer;
+  }
+
+  const peers = Object.values(torrents[info_hash])
+    .filter((p) => p.peer_id !== peer_id)
+    .map((p) => ({ ip: p.ip, port: p.port }));
+
+  res.json({
+    interval: 1800,
+    peers,
+  });
+}
+
+function handleStats(_req: Request, res: Response): void {
+  const stats: TorrentStats[] = Object.entries(torrents).map(
+    ([infoHash, swarm]) => {
+      let seeders = 0;
+      let leechers = 0;
+      const clientMap: Record<string, number> = {};
+
+      for (const peer of Object.values(swarm)) {
+        if (peer.left === 0) {
+          seeders++;
+        } else {
+          leechers++;
+        }
+
+        const match = peer.peer_id.match(/^-(.{2})/);
+        const clientPrefix = match?.[1] || "??";
+        clientMap[clientPrefix] = (clientMap[clientPrefix] || 0) + 1;
+      }
+
+      return {
+        infoHash,
+        totalPeers: seeders + leechers,
+        seeders,
+        leechers,
+        hasSeederAndLeecher: seeders > 0 && leechers > 0,
+        clients: clientMap,
+      };
+    }
+  );
+
+  return res.json({ torrents: stats });
+}
+
+app.get("/announce", handleAnnounce);
+app.get("/stats", handleStats);
+
+function startServer(): void {
+  app
+    .listen(PORT, () => {
+      console.log(`Tracker listening at http://localhost:${PORT}`);
+    })
+    .on("error", (err) => {
+      console.error("Failed to start server:", err);
+      process.exit(1);
+    });
+}
+
+startServer();
