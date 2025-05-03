@@ -5,5 +5,7 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
+      - DATA_DIR=/app/data
     volumes:
       - ./src:/app/src
+      - ./data:/app/data
