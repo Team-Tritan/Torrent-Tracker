@@ -52,7 +52,7 @@ Configure the tracker using environment variables in .env file.
 
 `/announce` - Used by BitTorrent clients to announce their presence and get peer lists.
 
-**Params:**\
+**Params:**
 
 - info_hash: Hash of the torrent (required)
 - peer_id: Client's peer ID (required)
@@ -79,4 +79,6 @@ In qBittorrent, go to a torrent's properties
 
 Click the "Trackers" tab
 
-Add http://your-server-ip:8080/announce to the trackers list manually OR go into options and add the link to the torrent setting that appends it to each download automatically.
+Add http://your-server-ip:8080/announce to the trackers list manually
+**OR**
+go into options and add the link to the torrent setting that appends it to each download automatically.
