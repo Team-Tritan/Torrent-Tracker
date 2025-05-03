@@ -42,7 +42,7 @@ const handleShutdown = (): void => {
 
   clearInterval(peerCleanupInterval);
   clearInterval(stateSavingInterval);
-  
+
   saveState(torrents);
   process.exit(0);
 };
