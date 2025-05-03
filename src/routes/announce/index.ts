@@ -36,7 +36,6 @@ router.get("/", (req: Request, res: Response) => {
 
     const ip = getIP(req);
 
-    // Process announce
     if (!torrents[info_hash]) {
       torrents[info_hash] = {};
     }
@@ -59,7 +58,6 @@ router.get("/", (req: Request, res: Response) => {
       delete torrents[info_hash];
     }
 
-    // Generate response
     const swarm = torrents[info_hash] || {};
 
     let seeders = 0;
