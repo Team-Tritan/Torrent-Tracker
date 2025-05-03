@@ -80,5 +80,7 @@ In qBittorrent, go to a torrent's properties
 Click the "Trackers" tab
 
 Add http://your-server-ip:8080/announce to the trackers list manually
+
 **OR**
+
 go into options and add the link to the torrent setting that appends it to each download automatically.
