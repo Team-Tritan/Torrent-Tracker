@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "dev": "bun run --watch ./src/server.ts",
+    "start": "bun run ./src/server.ts"
+  },
   "dependencies": {
     "@types/bencode": "^2.0.4",
     "@types/express": "^5.0.1",
@@ -7,6 +11,7 @@
     "crypto": "^1.0.1",
     "express": "^5.1.0",
     "http": "^0.0.1-security",
-    "url": "^0.11.4"
+    "url": "^0.11.4",
+    "zod": "^3.24.3"
   }
 }
