@@ -95,7 +95,7 @@ Returns statistics about one or more torrents.
 
 ---
 
-### `/stats/summary`
+### `/stats`
 
 Returns a summary of statistics about all tracked torrents.
 
