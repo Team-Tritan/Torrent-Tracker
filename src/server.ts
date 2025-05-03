@@ -17,6 +17,7 @@ const config = {
 Object.assign(torrents, loadState());
 
 const server = express()
+  .disable("x-powered-by")
   .use(router)
   .listen(config.port, () => {
     console.log(`BitTorrent Tracker listening at :${config.port}`);
