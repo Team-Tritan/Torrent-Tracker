@@ -1,16 +1,27 @@
 # BitTorrent Tracker
 
-A lightweight and efficient BitTorrent tracker implementation in TypeScript using Bun runtime and Express.
+A lightweight and efficient BitTorrent tracker implemented in TypeScript, using the Bun runtime and Express.
+
+---
 
 ## Features
 
-- **Full BitTorrent tracking functionality**: Implements the BitTorrent tracker protocol with announce, scrape, and stats endpoints
-- **Peer management**: Tracks active seeders and leechers for each torrent
-- **State persistence**: Automatically saves and loads tracker state to survive restarts
-- **Automatic cleanup**: Removes inactive peers to keep memory usage optimal
-- **Compact responses**: Supports compact peer lists for bandwidth efficiency
-- **Docker support**: Ready for containerized deployment
-- **Configurable**: Environment variables to customize your tracker setup
+- **Full BitTorrent tracking functionality**  
+  Implements the BitTorrent tracker protocol with announce, scrape, and stats endpoints.
+- **Peer management**  
+  Tracks active seeders and leechers for each torrent.
+- **State persistence**  
+  Automatically saves and loads tracker state to survive restarts.
+- **Automatic cleanup**  
+  Removes inactive peers to keep memory usage optimal.
+- **Compact responses**  
+  Supports compact peer lists for bandwidth efficiency.
+- **Docker support**  
+  Ready for containerized deployment.
+- **Configurable**  
+  Environment variables allow you to customize your tracker setup.
+
+---
 
 ## Installation
 
@@ -20,7 +31,7 @@ A lightweight and efficient BitTorrent tracker implementation in TypeScript usin
 
 ### Standard Installation
 
-```bash
+```
 # Clone the repository
 git clone https://github.com/team-tritan/bittorrent-tracker.git
 cd bittorrent-tracker
@@ -43,46 +54,69 @@ cd bittorrent-tracker
 docker-compose up -d
 ```
 
-### Configuration
+---
 
-Configure the tracker using environment variables in .env file.
-`PORT`, `DATA_DIR`, `CLEANUP_INTERVAL`
+## Configuration
 
-### API Endpoints
+Configure the tracker using environment variables in a `.env` file:
 
-`/announce` - Used by BitTorrent clients to announce their presence and get peer lists.
+- `PORT` — Port the tracker will listen on
+- `DATA_DIR` — Directory to store persistent data
+- `CLEANUP_INTERVAL` — Interval for cleaning up inactive peers (in ms)
 
-**Params:**
+---
 
-- info_hash: Hash of the torrent (required)
-- peer_id: Client's peer ID (required)
-- port: Client's listening port (required)
-- uploaded: Bytes uploaded
-- downloaded: Bytes downloaded
-- left: Bytes left to download
-- compact: Whether to use compact peer list format (0 or 1)
-- event: Client event (started, completed, stopped, or paused)
+## API Endpoints
 
-`/scrape` - Used to query statistics about torrents.
+### `/announce`
 
-**Params:**
+Used by BitTorrent clients to announce their presence and receive peer lists.
 
-- info_hash: Hash of the torrent (optional, can be specified multiple times)
+**Query Parameters:**
 
-`/stats/summary` - Provides a summary of statistics about all tracked torrents.
+- `info_hash` — Hash of the torrent (required)
+- `peer_id` — Client's peer ID (required)
+- `port` — Client's listening port (required)
+- `uploaded` — Bytes uploaded
+- `downloaded` — Bytes downloaded
+- `left` — Bytes left to download
+- `compact` — Use compact peer list format (0 or 1)
+- `event` — Client event (`started`, `completed`, `stopped`, or `paused`)
 
-`/stats/details` - Provides a detailed statistics about all tracked torrents.
+---
 
-### Usage with qBittorrent
+### `/scrape`
+
+Returns statistics about one or more torrents.
+
+**Query Parameters:**
+
+- `info_hash` — Hash of the torrent (optional, can be specified multiple times)
+
+---
+
+### `/stats/summary`
+
+Returns a summary of statistics about all tracked torrents.
+
+---
+
+### `/stats/details`
+
+Returns detailed statistics about all tracked torrents.
+
+---
+
+## Usage with qBittorrent
 
 To use this tracker with qBittorrent:
 
-In qBittorrent, go to a torrent's properties
+1. Open a torrent's **Properties**
+2. Go to the **Trackers** tab
+3. Add:  
+   `http://your-server-ip:8080/announce`
 
-Click the "Trackers" tab
+**Alternatively:**
 
-Add http://your-server-ip:8080/announce to the trackers list manually
-
-**OR**
-
-go into options and add the link to the torrent setting that appends it to each download automatically.
+- Go to **Options** → **Downloads**
+- Add the tracker URL to the setting that appends it to each download automatically
