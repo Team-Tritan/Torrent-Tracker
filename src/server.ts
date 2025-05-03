@@ -6,46 +6,46 @@ import { cleanupInactivePeers, torrents } from "./lib/store";
 import { loadState, saveState, setupPeriodicStateSaving } from "./utils";
 import { defaultStateSaveInterval, peerExpirationTime } from "./types";
 
-const server = express();
-const port = process.env.PORT || 8080;
-
-const cleanupInterval = process.env.CLEANUP_INTERVAL
-  ? parseInt(process.env.CLEANUP_INTERVAL, 10) * 60 * 1000
-  : Math.floor(peerExpirationTime / 3);
+const config = {
+  port: parseInt(process.env.PORT || "8080"),
+  cleanupInterval: process.env.CLEANUP_INTERVAL
+    ? parseInt(process.env.CLEANUP_INTERVAL, 10) * 60 * 1000
+    : Math.floor(peerExpirationTime / 3),
+  stateSaveInterval: defaultStateSaveInterval,
+};
 
 Object.assign(torrents, loadState());
 
-server.use(router);
+const server = express()
+  .use(router)
+  .listen(config.port, () => {
+    console.log(`BitTorrent Tracker listening at :${config.port}`);
+    console.log(`Peer expiration time: ${peerExpirationTime / 60000} minutes`);
+  })
+  .on("error", (err: Error) => {
+    console.error("Failed to start server:", err.message);
+    process.exit(1);
+  });
 
-function initServer(): void {
-  server
-    .listen(port, () => {
-      console.log(`BitTorrent Tracker listening at :${port}`);
-      console.log(
-        `Peer expiration time: ${peerExpirationTime / 60000} minutes`
-      );
-    })
-    .on("error", (err: any) => {
-      console.error("Failed to start server:", err);
-      process.exit(1);
-    });
-}
-
-const peerCleanupInterval = setInterval(cleanupInactivePeers, cleanupInterval);
-const stateSavingInterval = setupPeriodicStateSaving(
-  torrents,
-  defaultStateSaveInterval
+const peerCleanupInterval = setInterval(
+  cleanupInactivePeers,
+  config.cleanupInterval
 );
 
-function handleShutdown(): void {
+const stateSavingInterval = setupPeriodicStateSaving(
+  torrents,
+  config.stateSaveInterval
+);
+
+const handleShutdown = (): void => {
   console.log("Shutting down tracker...");
+
   clearInterval(peerCleanupInterval);
   clearInterval(stateSavingInterval);
+  
   saveState(torrents);
   process.exit(0);
-}
+};
 
 process.on("SIGINT", handleShutdown);
 process.on("SIGTERM", handleShutdown);
-
-initServer();
