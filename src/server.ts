@@ -1,8 +1,8 @@
 "use strict";
 
 import express from "express";
-import router from "./router";
-import { cleanupInactivePeers, torrents } from "./lib/tracker";
+import router from "./routes/router";
+import { cleanupInactivePeers, torrents } from "./lib/store";
 import { loadState, saveState, setupPeriodicStateSaving } from "./utils";
 import { defaultStateSaveInterval, peerExpirationTime } from "./types";
 
