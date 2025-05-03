@@ -1,13 +1,14 @@
 "use strict";
 
 import { Router } from "express";
-import { handleAnnounce, handleScrape, handleStats } from "../lib/tracker";
+import { handleAnnounce, handleScrape, handleStatsSummary, handleStatsDetails } from "../lib/tracker";
 
 const router = Router();
 
 router.get("/announce", handleAnnounce);
 router.get("/scrape", handleScrape);
-router.get("/stats", handleStats);
+router.get("/stats/summary", handleStatsSummary);
+router.get("/stats/details", handleStatsDetails);
 
 router.get("/", (req, res) => {
   res.end();

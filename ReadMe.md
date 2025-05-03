@@ -69,7 +69,9 @@ Configure the tracker using environment variables in .env file.
 
 - info_hash: Hash of the torrent (optional, can be specified multiple times)
 
-`/stats` - Provides detailed statistics about all tracked torrents.
+`/stats/summary` - Provides a summary of statistics about all tracked torrents.
+
+`/stats/details` - Provides a detailed statistics about all tracked torrents.
 
 ### Usage with qBittorrent
 
