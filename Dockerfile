@@ -1,4 +1,4 @@
-FROM oven/bun:latest
+FROM oven/bun:latest AS builder
 
 WORKDIR /app
 
@@ -6,9 +6,16 @@ COPY package.json ./
 RUN bun install
 
 COPY src/ ./src/
-RUN bun build ./src/server.ts --outdir ./dist --target=bun
+RUN bun build ./src/server.ts --outdir ./dist --target=node --bundle
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY --from=builder /app/dist ./dist
+
 RUN mkdir -p /app/data
 
 EXPOSE 8080
 
-CMD ["bun", "./dist/server.js"]
+CMD ["node", "./dist/server.js"]
