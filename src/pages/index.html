@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>~~ Tritan Internet ~~ - Torrent Tracker</title>
+
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: rgb(3, 7, 18);
+        color: #d7c1ff;
+        font-family: "Fira Code", monospace;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        padding: 40px 20px;
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+
+      h1 {
+        font-size: clamp(2.2rem, 5vw, 3rem);
+        margin: 0 0 10px 0;
+        background: linear-gradient(90deg, #bb86fc, #d0a8ff, #bb86fc);
+        background-size: 200% auto;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: shimmer 4s linear infinite;
+        text-align: center;
+      }
+
+      h2 {
+        font-size: 1.4rem;
+        margin-top: 32px;
+        margin-bottom: 14px;
+        color: #ff79c6;
+      }
+
+      @keyframes shimmer {
+        0% {
+          background-position: 0% center;
+        }
+
+        100% {
+          background-position: 200% center;
+        }
+      }
+
+      .container {
+        width: 100%;
+        max-width: 900px;
+      }
+
+      .message {
+        font-size: 1rem;
+        line-height: 1.8;
+      }
+
+      .message p {
+        margin: 0 0 18px 0;
+      }
+
+      .message ul,
+      .message ol {
+        padding-left: 24px;
+        margin-bottom: 20px;
+      }
+
+      .message li {
+        margin-bottom: 10px;
+      }
+
+      code {
+        background: rgba(255, 255, 255, 0.06);
+        color: #bb86fc;
+        padding: 2px 6px;
+        border-radius: 6px;
+        font-size: 0.95em;
+        word-break: break-word;
+      }
+
+      pre {
+        background: rgba(0, 0, 0, 0.35);
+        border: 1px solid rgba(187, 134, 252, 0.18);
+        border-radius: 12px;
+        padding: 16px;
+        overflow-x: auto;
+        color: #d0a8ff;
+        margin: 18px 0 24px 0;
+      }
+
+      pre code {
+        background: transparent;
+        padding: 0;
+      }
+
+      strong {
+        color: #ffffff;
+      }
+
+      .notice {
+        margin-top: 28px;
+        padding: 18px;
+        border-radius: 12px;
+        background: rgba(255, 121, 198, 0.08);
+        border: 1px solid rgba(255, 121, 198, 0.2);
+        color: #ffd5ec;
+      }
+
+      .ascii {
+        margin-top: 40px;
+        color: #ff79c6;
+        text-align: center;
+        opacity: 0.8;
+      }
+
+      .ascii pre {
+        background: transparent;
+        border: none;
+        margin: 0;
+        overflow: hidden;
+        color: inherit;
+      }
+
+      button {
+        margin-top: 30px;
+        padding: 0.9em 1.8em;
+        font-size: 1rem;
+        font-family: inherit;
+        background: rgba(26, 26, 46, 0.9);
+        color: #bb86fc;
+        border: 1px solid #bb86fc;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.25s ease;
+      }
+
+      button:hover {
+        background: #bb86fc;
+        color: #000;
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(187, 134, 252, 0.25);
+      }
+
+      .footer {
+        margin-top: 28px;
+        font-size: 0.9rem;
+        opacity: 0.7;
+        text-align: center;
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 14px;
+        margin: 24px 0 10px 0;
+      }
+
+      .stat-card {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(187, 134, 252, 0.18);
+        border-radius: 12px;
+        padding: 18px;
+        text-align: center;
+      }
+
+      .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.7;
+        margin-bottom: 8px;
+      }
+
+      .stat-value {
+        font-size: 1.6rem;
+        font-weight: bold;
+        color: #bb86fc;
+      }
+
+      .loading {
+        opacity: 0.7;
+        font-style: italic;
+        font-size: 0.9rem;
+      }
+
+      @media (max-width: 700px) {
+        body {
+          padding: 20px 14px;
+        }
+
+        .message {
+          font-size: 0.96rem;
+        }
+
+        h2 {
+          font-size: 1.2rem;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <h1>~~ Tritan Internet ~~</h1>
+
+      <div class="message">
+        <h2>Welcome to the Tritan Torrent Tracker</h2>
+
+        <p>
+          It looks like you've stumbled across our Torrent tracker
+          infrastructure.
+        </p>
+
+        <p>
+          This page is primarily informational, the tracker itself is fully
+          operational and is used by Torrent clients for peer discovery and
+          swarm coordination.
+        </p>
+
+        <h2>Tracker Statistics</h2>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Torrents</div>
+            <div class="stat-value" id="stat-torrents">
+              <span class="loading">Loading...</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-label">Peers</div>
+            <div class="stat-value" id="stat-peers">
+              <span class="loading">Loading...</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-label">Seeders</div>
+            <div class="stat-value" id="stat-seeders">
+              <span class="loading">Loading...</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-label">Leechers</div>
+            <div class="stat-value" id="stat-leechers">
+              <span class="loading">Loading...</span>
+            </div>
+          </div>
+        </div>
+
+        <h2>What does a torrent tracker do?</h2>
+
+        <p>
+          A torrent tracker is a lightweight coordination service used by the
+          Torrent protocol. When a user opens a torrent or magnet link, their
+          Torrent client contacts the tracker to obtain a list of peers
+          currently sharing the same content.
+        </p>
+
+        <p>
+          The tracker does <strong>not</strong> host, cache, or distribute any
+          files. It only facilitates communication between peers participating
+          in a swarm.
+        </p>
+
+        <h2>How peer discovery works</h2>
+
+        <ol>
+          <li>A user opens a <code>.torrent</code> file or magnet link.</li>
+
+          <li>
+            The torrent client announces itself to the tracker using the
+            configured announce URL.
+          </li>
+
+          <li>
+            The tracker returns a list of active peers participating in the
+            swarm.
+          </li>
+
+          <li>
+            The torrent client exchanges file pieces directly with peers over a
+            peer-to-peer connection.
+          </li>
+        </ol>
+
+        <p>
+          All content transfers occur directly between users — never through the
+          tracker itself.
+        </p>
+
+        <h2>Using this tracker</h2>
+
+        <p>
+          Add the tracker announce URL to your torrent configuration or magnet
+          link:
+        </p>
+
+        <pre><code>tracker.tritan.gg:8080/announce</code></pre>
+
+        <p>Supported by most modern torrent clients including:</p>
+
+        <ul>
+          <li>qBittorrent</li>
+          <li>Transmission</li>
+          <li>Deluge</li>
+          <li>rTorrent</li>
+          <li>aria2</li>
+        </ul>
+
+        <h2>Example magnet link</h2>
+
+        <pre><code>magnet:?xt=urn:btih:HASHHERE&tr=udp://tracker.tritan.gg:8080/announce</code></pre>
+
+        <h2>Open Source</h2>
+
+        <p>
+          This project is open source! If you'd like to contribute, please
+          visit our
+          <a
+            style="color: #bb86fc"
+            href="https://github.com/team-tritan/torrent-tracker"
+            target="_blank"
+          >
+            GitHub repository
+          </a>.
+        </p>
+
+        <div class="notice">
+          <strong>Important:</strong><br /><br />
+          This service only facilitates peer discovery and does not host
+          content. Users are responsible for ensuring their activity complies
+          with applicable laws and regulations.
+        </div>
+
+        <div class="footer">
+          Tritan Internet
+        </div>
+      </div>
+
+      <div class="ascii">
+        <pre>
+       .       .       
+        \     //       
+      .  \ . //  .     
+       \  \|//  /      
+        \-- * --/       
+         /  |  \        
+      . /   |   \ .     
+       //   |   \\       
+      '     |     '      
+            |
+        </pre>
+      </div>
+
+      <div style="text-align: center">
+        <button onclick="location.href = 'https://tritan.gg'">
+          Learn About Tritan Internet
+        </button>
+      </div>
+    </div>
+
+    <script>
+      async function loadStats() {
+        try {
+          const response = await fetch("/stats");
+
+          if (!response.ok) {
+            throw new Error("Failed to fetch stats");
+          }
+
+          const stats = await response.json();
+
+          document.getElementById("stat-torrents").textContent =
+            (stats.torrents || 0).toLocaleString();
+
+          document.getElementById("stat-peers").textContent =
+            (stats.peers || 0).toLocaleString();
+
+          document.getElementById("stat-seeders").textContent =
+            (stats.seeders || 0).toLocaleString();
+
+          document.getElementById("stat-leechers").textContent =
+            (stats.leechers || 0).toLocaleString();
+        } catch (error) {
+          console.error(error);
+
+          document.getElementById("stat-torrents").textContent = "N/A";
+          document.getElementById("stat-peers").textContent = "N/A";
+          document.getElementById("stat-seeders").textContent = "N/A";
+          document.getElementById("stat-leechers").textContent = "N/A";
+        }
+      }
+
+      loadStats();
+
+      setInterval(loadStats, 30000);
+    </script>
+  </body>
+</html>
