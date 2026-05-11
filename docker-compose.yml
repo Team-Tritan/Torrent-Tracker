@@ -1,11 +1,30 @@
 services:
   tracker:
     build: .
-    network_mode: host
     restart: unless-stopped
     environment:
       - NODE_ENV=production
       - DATA_DIR=/app/data
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     volumes:
       - ./src:/app/src
       - ./data:/app/data
+    networks:
+      - bittorrent-tracker-network
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    networks:
+      - bittorrent-tracker-network
+
+volumes:
+  redis-data:
+
+networks:
+  bittorrent-tracker-network:
