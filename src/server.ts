@@ -20,6 +20,7 @@ try {
   if (fs.existsSync(blacklistPath)) {
     const blacklistData = fs.readFileSync(blacklistPath, "utf-8");
     const blacklist = JSON.parse(blacklistData);
+
     if (Array.isArray(blacklist)) {
       loadBlacklist(blacklist);
       console.log(`Loaded ${blacklist.length} hashes from the blacklist.`);
