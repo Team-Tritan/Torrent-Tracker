@@ -1,12 +1,12 @@
-# BitTorrent Tracker
+# Torrent Tracker
 
-A lightweight and efficient BitTorrent tracker implemented in TypeScript, using the Bun runtime and Express.
+A lightweight and efficient Torrent tracker implemented in TypeScript, using the Bun runtime and Express.
 
 ---
 
 ## Features
 
-- **Full BitTorrent tracking functionality**  
+- **Full Torrent tracking functionality**  
   Implements the BitTorrent tracker protocol with announce, scrape, and stats endpoints.
 - **Peer management**  
   Tracks active seeders and leechers for each torrent.
@@ -33,8 +33,8 @@ A lightweight and efficient BitTorrent tracker implemented in TypeScript, using 
 
 ```
 # Clone the repository
-git clone https://github.com/team-tritan/bittorrent-tracker.git
-cd bittorrent-tracker
+git clone https://github.com/team-tritan/torrent-tracker.git
+cd torrent-tracker
 
 # Install dependencies
 bun install
@@ -47,11 +47,11 @@ bun start
 
 ```
 # Clone the repository
-git clone https://github.com/team-tritan/bittorrent-tracker.git
-cd bittorrent-tracker
+git clone https://github.com/team-tritan/torrent-tracker.git
+cd torrent-tracker
 
 # Start with Docker Compose
-docker-compose up -d
+docker compose up -d
 ```
 
 ---
@@ -60,10 +60,11 @@ docker-compose up -d
 
 Configure the tracker using environment variables in a `.env` file:
 
-- `PORT` — Port the tracker will listen on
-- `DATA_DIR` — Directory to store persistent data
-- `CLEANUP_INTERVAL` — Interval for cleaning up inactive peers (in ms)
-
+- `PORT` - Port the tracker will listen on
+- `DATA_DIR` - Directory to store persistent data
+- `CLEANUP_INTERVAL` - Interval for cleaning up inactive peers (in ms)
+- `REDIS_HOST` - Hostname for redis, defaulted to docker networking
+- `REDIS_PORT` - Ditto to above
 ---
 
 ## API Endpoints
@@ -105,6 +106,62 @@ Returns a summary of statistics about all tracked torrents.
 
 Returns detailed statistics about all tracked torrents.
 
+---
+### `/torrent/:infoHash`
+
+Returns detailed information about a specific torrent currently being tracked.
+
+**Path Parameters:**
+
+* `infoHash` — The torrent info hash (required)
+
+**Description:**
+
+This endpoint provides a full snapshot of a single torrent’s current swarm state, including peer-level and aggregate statistics. It is primarily intended for debugging, monitoring, and administrative visibility rather than client usage.
+
+It returns:
+
+* Total number of peers in the swarm
+* Seeder and leecher counts
+* Aggregate upload and download totals
+* Per-client breakdown (based on peer ID prefix)
+* Full peer list with connection metadata
+
+**Example Request:**
+
+```http
+GET /torrent/<infoHash>
+```
+
+**Example Response:**
+
+```json
+{
+  "infoHash": "...",
+  "totalPeers": 12,
+  "seeders": 5,
+  "leechers": 7,
+  "uploaded": 12345678,
+  "downloaded": 9876543,
+  "hasSeederAndLeecher": true,
+  "clients": {
+    "qB": 4,
+    "TR": 3
+  },
+  "peers": [
+    {
+      "peerId": "...",
+      "ip": "1.2.3.4",
+      "port": 6881,
+      "uploaded": 1234,
+      "downloaded": 5678,
+      "left": 0,
+      "isSeeder": true,
+      "lastSeen": 1710000000000
+    }
+  ]
+}
+```
 ---
 
 ## Usage with qBittorrent
