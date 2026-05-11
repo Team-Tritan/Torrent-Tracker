@@ -35,8 +35,23 @@ export const torrentStatsSchema = z.object({
   totalPeers: z.number(),
   seeders: z.number(),
   leechers: z.number(),
+  uploaded: z.number(),
+  downloaded: z.number(),
   hasSeederAndLeecher: z.boolean(),
   clients: z.record(z.string(), z.number()),
+  peers: z.array(
+    z.object({
+      peerId: z.string(),
+      ip: z.string(),
+      port: z.number(),
+      uploaded: z.number(),
+      downloaded: z.number(),
+      left: z.number(),
+      isSeeder: z.boolean(),
+      lastSeen: z.number(),
+      client: z.string(),
+    }),
+  ),
 });
 
 export const swarmSchema = z.record(z.string(), peerSchema);
