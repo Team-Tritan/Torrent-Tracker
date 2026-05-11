@@ -21,21 +21,26 @@ router.get("/", async (req: Request, res: Response) => {
 
     if (!info_hash || !peer_id || isNaN(port) || port <= 0 || port > 65535) {
       res.set("Content-Type", "text/plain");
+
       res.status(400).send(
         bencode.encode({
           "failure reason": "Missing or invalid required parameters",
         }),
       );
+
       return;
     }
 
     if (blacklist.includes(info_hash)) {
       res.set("Content-Type", "text/plain");
+
       res.status(403).send(
         bencode.encode({
-          "failure reason": "This torrent is blacklisted.",
+          "failure reason":
+            "This torrent is blacklisted due to take-down policy.",
         }),
       );
+
       return;
     }
 
@@ -60,6 +65,7 @@ router.get("/", async (req: Request, res: Response) => {
         left,
         lastSeen: Date.now(),
       };
+
       await redis.hset(torrentKey, peer_id, JSON.stringify(peer));
     }
 
@@ -93,6 +99,7 @@ router.get("/", async (req: Request, res: Response) => {
     res.send(bencode.encode(response));
   } catch (error) {
     console.error("Announce error:", error);
+
     res.set("Content-Type", "text/plain");
     res.status(400).send(
       bencode.encode({

@@ -20,17 +20,18 @@ async function getTorrentCounts(
   for await (const chunk of peerStream) {
     for (let i = 1; i < chunk.length; i += 2) {
       const peerData = chunk[i];
+
       if (!peerData) continue;
+
       const peer = JSON.parse(peerData);
       hasPeers = true;
+
       if (peer.left === 0) complete++;
       else incomplete++;
     }
   }
 
-  if (!hasPeers) {
-    return null;
-  }
+  if (!hasPeers) return null;
 
   return { complete, incomplete };
 }
@@ -50,20 +51,34 @@ router.get("/", async (req: Request, res: Response) => {
 
     if (info_hashes.length > 0) {
       for (const info_hash of info_hashes) {
-        if (blacklist.includes(info_hash)) continue;
+        if (blacklist.includes(info_hash)) {
+          res.set("Content-Type", "text/plain");
+          res.send(
+            bencode.encode({
+              "failure reason":
+                "This torrent is blacklisted due to take-down policy.",
+            }),
+          );
+          return;
+        }
+
         const torrentKey = `torrent:${info_hash}`;
         const counts = await getTorrentCounts(torrentKey);
+
         if (counts) {
           files[info_hash] = { ...counts, downloaded: 0 };
         }
       }
     } else {
       const keyStream = redis.scanStream({ match: "torrent:*", count: 500 });
+
       for await (const keys of keyStream) {
         for (const torrentKey of keys) {
           const info_hash = torrentKey.replace("torrent:", "");
+
           if (blacklist.includes(info_hash)) continue;
           const counts = await getTorrentCounts(torrentKey);
+
           if (counts) {
             files[info_hash] = { ...counts, downloaded: 0 };
           }

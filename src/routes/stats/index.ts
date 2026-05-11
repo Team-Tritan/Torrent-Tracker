@@ -69,17 +69,22 @@ async function buildSummary(): Promise<SummaryStats> {
   for await (const keys of keyStream) {
     for (const key of keys) {
       totalTorrents++;
+
       const peerStream = redis.hscanStream(key, { count: 200 });
+
       for await (const chunk of peerStream) {
         for (let i = 1; i < chunk.length; i += 2) {
           const peerData = chunk[i];
+
           if (!peerData) continue;
           const peer = JSON.parse(peerData);
+
           if (peer.left === 0) {
             totalSeeders++;
           } else {
             totalLeechers++;
           }
+
           totalUploaded += peer.uploaded;
           totalDownloaded += peer.downloaded;
 
@@ -157,10 +162,12 @@ async function buildDetails(): Promise<TorrentStats[]> {
   for await (const keys of keyStream) {
     for (const key of keys) {
       const infoHash = key.replace("torrent:", "");
+
       let seeders = 0;
       let leechers = 0;
       let uploaded = 0;
       let downloaded = 0;
+
       const clientMap: Record<string, number> = {};
       const peerDetails: Array<{
         peerId: string;
@@ -179,17 +186,21 @@ async function buildDetails(): Promise<TorrentStats[]> {
         for (let i = 1; i < chunk.length; i += 2) {
           const peerData = chunk[i];
           if (!peerData) continue;
+
           const peer = JSON.parse(peerData);
+
           if (peer.left === 0) {
             seeders++;
           } else {
             leechers++;
           }
+
           uploaded += peer.uploaded;
           downloaded += peer.downloaded;
 
           const match = peer.peer_id.match(/^-(.{2})/);
           const clientPrefix = match?.[1] || "??";
+          
           clientMap[clientPrefix] = (clientMap[clientPrefix] || 0) + 1;
 
           peerDetails.push({
