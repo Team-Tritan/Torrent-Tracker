@@ -2,7 +2,7 @@ services:
   tracker:
     build: .
     restart: unless-stopped
-    mem_limit: 2g
+    mem_limit: 3g
     environment:
       - NODE_ENV=production
       - DATA_DIR=/app/data
@@ -19,7 +19,7 @@ services:
   redis:
     image: redis:alpine
     restart: unless-stopped
-    mem_limit: 2g
+    mem_limit: 512m
     volumes:
       - redis-data:/data
     networks:
