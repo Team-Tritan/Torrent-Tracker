@@ -37,7 +37,7 @@ const server = express()
   .disable("x-powered-by")
   .use(router)
   .listen(config.port, () => {
-    console.log(`BitTorrent Tracker listening at :${config.port}`);
+    console.log(`Torrent Tracker listening at :${config.port}`);
     console.log(`Peer expiration time: ${peerExpirationTime / 60000} minutes`);
   })
   .on("error", (err: Error) => {
