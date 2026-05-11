@@ -3,25 +3,33 @@ import redis from "./redis";
 
 export async function cleanupInactivePeers(): Promise<void> {
   const now = Date.now();
-  const infoHashes = await redis.keys("torrent:*");
+  const keyStream = redis.scanStream({ match: "torrent:*", count: 500 });
 
-  for (const infoHashKey of infoHashes) {
-    const infoHash = infoHashKey.replace("torrent:", "");
-    const peerIds = await redis.hkeys(infoHashKey);
+  for await (const keys of keyStream) {
+    for (const key of keys) {
+      const stalePeers: string[] = [];
+      const peerStream = redis.hscanStream(key, { count: 200 });
 
-    for (const peerId of peerIds) {
-      const peerData = await redis.hget(infoHashKey, peerId);
-      if (peerData) {
-        const peer = JSON.parse(peerData);
-        if (now - peer.lastSeen > peerExpirationTime) {
-          await redis.hdel(infoHashKey, peerId);
+      for await (const chunk of peerStream) {
+        for (let i = 0; i < chunk.length; i += 2) {
+          const peerId = chunk[i];
+          const peerData = chunk[i + 1];
+          if (!peerData) continue;
+          const peer = JSON.parse(peerData);
+          if (now - peer.lastSeen > peerExpirationTime) {
+            stalePeers.push(peerId);
+          }
         }
       }
-    }
 
-    const remainingPeers = await redis.hlen(infoHashKey);
-    if (remainingPeers === 0) {
-      await redis.del(infoHashKey);
+      if (stalePeers.length > 0) {
+        await redis.hdel(key, ...stalePeers);
+      }
+
+      const remainingPeers = await redis.hlen(key);
+      if (remainingPeers === 0) {
+        await redis.del(key);
+      }
     }
   }
 }

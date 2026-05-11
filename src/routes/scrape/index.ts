@@ -9,6 +9,32 @@ import { blacklist } from "../../lib/store";
 
 const router = Router();
 
+async function getTorrentCounts(
+  torrentKey: string,
+): Promise<{ complete: number; incomplete: number } | null> {
+  let complete = 0;
+  let incomplete = 0;
+  let hasPeers = false;
+  const peerStream = redis.hscanStream(torrentKey, { count: 200 });
+
+  for await (const chunk of peerStream) {
+    for (let i = 1; i < chunk.length; i += 2) {
+      const peerData = chunk[i];
+      if (!peerData) continue;
+      const peer = JSON.parse(peerData);
+      hasPeers = true;
+      if (peer.left === 0) complete++;
+      else incomplete++;
+    }
+  }
+
+  if (!hasPeers) {
+    return null;
+  }
+
+  return { complete, incomplete };
+}
+
 router.get("/", async (req: Request, res: Response) => {
   try {
     const { query } = parse(req.url ?? "", false);
@@ -26,32 +52,22 @@ router.get("/", async (req: Request, res: Response) => {
       for (const info_hash of info_hashes) {
         if (blacklist.includes(info_hash)) continue;
         const torrentKey = `torrent:${info_hash}`;
-        const swarmData = await redis.hvals(torrentKey);
-        if (swarmData.length > 0) {
-          let complete = 0;
-          let incomplete = 0;
-          swarmData.forEach((p) => {
-            const peer = JSON.parse(p);
-            if (peer.left === 0) complete++;
-            else incomplete++;
-          });
-          files[info_hash] = { complete, incomplete, downloaded: 0 };
+        const counts = await getTorrentCounts(torrentKey);
+        if (counts) {
+          files[info_hash] = { ...counts, downloaded: 0 };
         }
       }
     } else {
-      const allTorrentKeys = await redis.keys("torrent:*");
-      for (const torrentKey of allTorrentKeys) {
-        const info_hash = torrentKey.replace("torrent:", "");
-        if (blacklist.includes(info_hash)) continue;
-        const swarmData = await redis.hvals(torrentKey);
-        let complete = 0;
-        let incomplete = 0;
-        swarmData.forEach((p) => {
-          const peer = JSON.parse(p);
-          if (peer.left === 0) complete++;
-          else incomplete++;
-        });
-        files[info_hash] = { complete, incomplete, downloaded: 0 };
+      const keyStream = redis.scanStream({ match: "torrent:*", count: 500 });
+      for await (const keys of keyStream) {
+        for (const torrentKey of keys) {
+          const info_hash = torrentKey.replace("torrent:", "");
+          if (blacklist.includes(info_hash)) continue;
+          const counts = await getTorrentCounts(torrentKey);
+          if (counts) {
+            files[info_hash] = { ...counts, downloaded: 0 };
+          }
+        }
       }
     }
 
