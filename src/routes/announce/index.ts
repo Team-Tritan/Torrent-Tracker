@@ -5,11 +5,12 @@ import { parse } from "url";
 import bencode from "bencode";
 import { Peer, AnnounceResponse, defaultAnnounceInterval } from "../../types";
 import { getIP, parseQuery } from "../../utils";
-import { torrents } from "../../lib/store";
+import { blacklist } from "../../lib/store";
+import redis from "../../lib/redis";
 
 const router = Router();
 
-router.get("/", (req: Request, res: Response) => {
+router.get("/", async (req: Request, res: Response) => {
   try {
     const { query } = parse(req.url ?? "", false);
     const params = parseQuery(query ?? undefined);
@@ -23,7 +24,17 @@ router.get("/", (req: Request, res: Response) => {
       res.status(400).send(
         bencode.encode({
           "failure reason": "Missing or invalid required parameters",
-        })
+        }),
+      );
+      return;
+    }
+
+    if (blacklist.includes(info_hash)) {
+      res.set("Content-Type", "text/plain");
+      res.status(403).send(
+        bencode.encode({
+          "failure reason": "This torrent is blacklisted.",
+        }),
       );
       return;
     }
@@ -35,15 +46,12 @@ router.get("/", (req: Request, res: Response) => {
     const compact = params["compact"] === "1";
 
     const ip = getIP(req);
-
-    if (!torrents[info_hash]) {
-      torrents[info_hash] = {};
-    }
+    const torrentKey = `torrent:${info_hash}`;
 
     if (event === "stopped") {
-      delete torrents[info_hash][peer_id];
+      await redis.hdel(torrentKey, peer_id);
     } else {
-      torrents[info_hash][peer_id] = {
+      const peer: Peer = {
         peer_id,
         ip,
         port,
@@ -52,23 +60,25 @@ router.get("/", (req: Request, res: Response) => {
         left,
         lastSeen: Date.now(),
       };
+      await redis.hset(torrentKey, peer_id, JSON.stringify(peer));
     }
 
-    if (Object.keys(torrents[info_hash]).length === 0) {
-      delete torrents[info_hash];
-    }
+    const swarmData = await redis.hvals(torrentKey);
+    const swarm = swarmData.map((p) => JSON.parse(p) as Peer);
 
-    const swarm = torrents[info_hash] || {};
+    if (swarm.length === 0) {
+      await redis.del(torrentKey);
+    }
 
     let seeders = 0;
     let leechers = 0;
 
-    Object.values(swarm).forEach((p) => {
+    swarm.forEach((p) => {
       if (p.left === 0) seeders++;
       else leechers++;
     });
 
-    const peerList = Object.values(swarm).filter((p) => p.peer_id !== peer_id);
+    const peerList = swarm.filter((p) => p.peer_id !== peer_id);
 
     const response: AnnounceResponse = {
       interval: defaultAnnounceInterval,
@@ -87,7 +97,7 @@ router.get("/", (req: Request, res: Response) => {
     res.status(400).send(
       bencode.encode({
         "failure reason": "Internal tracker error",
-      })
+      }),
     );
   }
 });
@@ -111,7 +121,7 @@ function createCompactPeerList(peers: Peer[]): Buffer {
 }
 
 function createDictionaryPeerList(
-  peers: Peer[]
+  peers: Peer[],
 ): Array<{ peer_id: string; ip: string; port: number }> {
   return peers.map((p) => ({
     peer_id: p.peer_id,
