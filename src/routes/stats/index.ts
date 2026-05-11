@@ -8,28 +8,19 @@ import { blacklist } from "../../lib/store";
 
 const router = Router();
 
-router.get("/", async (_req: Request, res: Response) => {
-  try {
-    const torrentKeys = await redis.keys("torrent:*");
-    const totalTorrents = torrentKeys.length;
-    let totalSeeders = 0;
-    let totalLeechers = 0;
-    let totalUploaded = 0;
-    let totalDownloaded = 0;
+async function getStatsFromStream(stream: AsyncIterable<string[]>) {
+  let totalTorrents = 0;
+  let totalSeeders = 0;
+  let totalLeechers = 0;
+  let totalUploaded = 0;
+  let totalDownloaded = 0;
+  const uniquePeers: Record<string, { isSeeding: boolean; isLeeching: boolean; ip: string }> = {};
+  const clientMap: Record<string, number> = {};
 
-    const uniquePeers: Record<
-      string,
-      {
-        isSeeding: boolean;
-        isLeeching: boolean;
-        ip: string;
-      }
-    > = {};
-
-    const clientMap: Record<string, number> = {};
-
-    for (const torrentKey of torrentKeys) {
-      const swarmData = await redis.hvals(torrentKey);
+  for await (const keys of stream) {
+    totalTorrents += keys.length;
+    for (const key of keys) {
+      const swarmData = await redis.hvals(key);
       for (const peerData of swarmData) {
         const peer = JSON.parse(peerData);
         if (peer.left === 0) {
@@ -47,10 +38,8 @@ router.get("/", async (_req: Request, res: Response) => {
             ip: peer.ip,
           };
         } else {
-          uniquePeers[peer.peer_id].isSeeding =
-            uniquePeers[peer.peer_id].isSeeding || peer.left === 0;
-          uniquePeers[peer.peer_id].isLeeching =
-            uniquePeers[peer.peer_id].isLeeching || peer.left > 0;
+          uniquePeers[peer.peer_id].isSeeding = uniquePeers[peer.peer_id].isSeeding || peer.left === 0;
+          uniquePeers[peer.peer_id].isLeeching = uniquePeers[peer.peer_id].isLeeching || peer.left > 0;
         }
 
         const match = peer.peer_id.match(/^-(.{2})/);
@@ -58,6 +47,31 @@ router.get("/", async (_req: Request, res: Response) => {
         clientMap[clientPrefix] = (clientMap[clientPrefix] || 0) + 1;
       }
     }
+  }
+
+  return {
+    totalTorrents,
+    totalSeeders,
+    totalLeechers,
+    totalUploaded,
+    totalDownloaded,
+    uniquePeers,
+    clientMap,
+  };
+}
+
+router.get("/", async (_req: Request, res: Response) => {
+  try {
+    const stream = redis.scanStream({ match: "torrent:*" });
+    const {
+      totalTorrents,
+      totalSeeders,
+      totalLeechers,
+      totalUploaded,
+      totalDownloaded,
+      uniquePeers,
+      clientMap,
+    } = await getStatsFromStream(stream);
 
     let seedersOnly = 0;
     let leechersOnly = 0;
@@ -111,67 +125,69 @@ router.get("/", async (_req: Request, res: Response) => {
 
 router.get("/details", async (_req: Request, res: Response) => {
   try {
-    const torrentKeys = await redis.keys("torrent:*");
+    const stream = redis.scanStream({ match: "torrent:*" });
     const stats: TorrentStats[] = [];
 
-    for (const torrentKey of torrentKeys) {
-      const infoHash = torrentKey.replace("torrent:", "");
-      const swarmData = await redis.hvals(torrentKey);
-      let seeders = 0;
-      let leechers = 0;
-      let uploaded = 0;
-      let downloaded = 0;
-      const clientMap: Record<string, number> = {};
-      const peerDetails: Array<{
-        peerId: string;
-        ip: string;
-        port: number;
-        uploaded: number;
-        downloaded: number;
-        left: number;
-        isSeeder: boolean;
-        lastSeen: number;
-        client: string;
-      }> = [];
+    for await (const torrentKeys of stream) {
+      for (const torrentKey of torrentKeys) {
+        const infoHash = torrentKey.replace("torrent:", "");
+        const swarmData = await redis.hvals(torrentKey);
+        let seeders = 0;
+        let leechers = 0;
+        let uploaded = 0;
+        let downloaded = 0;
+        const clientMap: Record<string, number> = {};
+        const peerDetails: Array<{
+          peerId: string;
+          ip: string;
+          port: number;
+          uploaded: number;
+          downloaded: number;
+          left: number;
+          isSeeder: boolean;
+          lastSeen: number;
+          client: string;
+        }> = [];
 
-      for (const peerData of swarmData) {
-        const peer = JSON.parse(peerData);
-        if (peer.left === 0) {
-          seeders++;
-        } else {
-          leechers++;
+        for (const peerData of swarmData) {
+          const peer = JSON.parse(peerData);
+          if (peer.left === 0) {
+            seeders++;
+          } else {
+            leechers++;
+          }
+          uploaded += peer.uploaded;
+          downloaded += peer.downloaded;
+
+          const match = peer.peer_id.match(/^-(.{2})/);
+          const clientPrefix = match?.[1] || "??";
+          clientMap[clientPrefix] = (clientMap[clientPrefix] || 0) + 1;
+
+          peerDetails.push({
+            peerId: peer.peer_id,
+            ip: peer.ip,
+            port: peer.port,
+            uploaded: peer.uploaded,
+            downloaded: peer.downloaded,
+            left: peer.left,
+            isSeeder: peer.left === 0,
+            lastSeen: peer.lastSeen,
+            client: clientPrefix,
+          });
         }
-        uploaded += peer.uploaded;
-        downloaded += peer.downloaded;
 
-        const match = peer.peer_id.match(/^-(.{2})/);
-        const clientPrefix = match?.[1] || "??";
-        clientMap[clientPrefix] = (clientMap[clientPrefix] || 0) + 1;
-
-        peerDetails.push({
-          peerId: peer.peer_id,
-          ip: peer.ip,
-          port: peer.port,
-          uploaded: peer.uploaded,
-          downloaded: peer.downloaded,
-          left: peer.left,
-          isSeeder: peer.left === 0,
-          lastSeen: peer.lastSeen,
-          client: clientPrefix,
+        stats.push({
+          infoHash,
+          totalPeers: seeders + leechers,
+          seeders,
+          leechers,
+          uploaded,
+          downloaded,
+          hasSeederAndLeecher: seeders > 0 && leechers > 0,
+          clients: clientMap,
+          peers: peerDetails,
         });
       }
-
-      stats.push({
-        infoHash,
-        totalPeers: seeders + leechers,
-        seeders,
-        leechers,
-        uploaded,
-        downloaded,
-        hasSeederAndLeecher: seeders > 0 && leechers > 0,
-        clients: clientMap,
-        peers: peerDetails,
-      });
     }
 
     res.json({ torrents: stats });
