@@ -9,7 +9,9 @@ import healthRouter from "./health";
 const router = Router();
 
 router.get("/", (_req: Request, res: Response) => {
-  res.sendFile("index.html", { root: "src/pages" });
+  res.sendFile("index.html", {
+    root: `${process.cwd()}/dist/pages`,
+  });
 });
 
 router.use("/announce", announceRouter);
